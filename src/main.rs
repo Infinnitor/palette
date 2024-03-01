@@ -23,31 +23,39 @@ mod display {
 
 	pub fn print_lines_coloured(colours: &[ColourInfo]) {
 		for c in colours.into_iter() {
-			let block = format!("\x1b[48;2;{};{};{}m", c.colour.r, c.colour.g, c.colour.b);
-			println!("{}{}{} {}", block, "      ", CLEAR_SEQUENCE, c.hex);
+			println!(
+				"{}{}{} {}",
+				c.ansi_block(),
+				"      ",
+				CLEAR_SEQUENCE,
+				c.hex()
+			);
 		}
 	}
 
 	pub fn print_lines_uncoloured(colours: &[ColourInfo]) {
 		for c in colours.into_iter() {
-			println!("{}", c.hex);
+			println!("{}", c.hex());
 		}
 	}
 
 	pub fn print_block_lines(colours: &[ColourInfo]) {
 		for c in colours.into_iter() {
-			let block = format!("\x1b[48;2;{};{};{}m", c.colour.r, c.colour.g, c.colour.b);
-			println!("{}", block);
+			println!("{}", c.ansi_block());
 		}
 		println!("{}", CLEAR_SEQUENCE);
 	}
 
 	pub fn print_lines_code(colours: &[ColourInfo]) {
-		for c in colours.into_iter() {
-			let block = format!("\x1b[48;2;{};{};{}m", c.colour.r, c.colour.g, c.colour.b);
-			println!("\"{block}#{}{}\",", c.hex, CLEAR_SEQUENCE);
+		println!("[");
+		for (i, c) in colours.into_iter().enumerate() {
+			let mut formatted = format!("\t\"{}{}{}\",", c.ansi_block(), c.hex(), CLEAR_SEQUENCE);
+			if i == colours.len() - 1 {
+				formatted.pop();
+			}
+			println!("{}", formatted);
 		}
-		println!("{}", CLEAR_SEQUENCE);
+		println!("{}]", CLEAR_SEQUENCE);
 	}
 }
 
@@ -60,14 +68,23 @@ fn main() {
 	let mut program = command!()
 		.subcommand(Command::new("rand").about("Generates a randomized palette"))
 		.subcommand(Command::new("wal").about("Loads colours from ~/.cache/wal/colors.json"))
+		.subcommand(
+			Command::new("gradient")
+				.about("Generates a gradient between <start> and <end>")
+				.arg(arg!([start] "The starting colour").required(true))
+				.arg(arg!([end] "The ending colour").required(true)),
+		)
+		.subcommand(
+			Command::new("gradient-rand").about("Generates a gradient between two random colours"),
+		)
 		.arg(
-			arg!(-l --limit <AMT> "Limit number of colours displayed")
+			arg!(-n --limit <AMT> "Limit number of colours displayed")
 				.required(false)
 				.global(true)
 				.value_parser(value_parser!(usize)),
 		)
 		.arg(
-			arg!(-p --plain "Do not colour display")
+			arg!(--plain "Do not colour display")
 				.required(false)
 				.global(true),
 		)
@@ -77,7 +94,7 @@ fn main() {
 				.global(true),
 		)
 		.arg(
-			arg!(-f --lined "Print full lines of colour")
+			arg!(--lined "Print full lines of colour")
 				.required(false)
 				.global(true),
 		);
@@ -94,6 +111,15 @@ fn main() {
 			.into_iter()
 			.take(limit)
 			.collect()
+	} else if let Some(sub) = matches.subcommand_matches("gradient") {
+		handle_anyhow_result(commands::gradient(
+			sub.get_one::<String>("start").unwrap().to_string(),
+			sub.get_one::<String>("end").unwrap().to_string(),
+			limit,
+		))
+	} else if let Some(sub) = matches.subcommand_matches("gradient-rand") {
+		let ends = handle_anyhow_result(commands::rand(2));
+		handle_anyhow_result(commands::gradient(ends[0].hex(), ends[1].hex(), limit))
 	} else {
 		println!("{}", help);
 		std::process::exit(2);

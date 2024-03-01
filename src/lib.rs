@@ -1,9 +1,37 @@
 #![allow(unused)]
 pub use rgb::RGB8 as Colour;
+use std::ops::Deref;
 
 pub struct ColourInfo {
-	pub colour: Colour,
-	pub hex: String,
+	colour: Colour,
+}
+
+impl ColourInfo {
+	pub fn hex(&self) -> String {
+		format!(
+			"#{:02x}{:02x}{:02x}",
+			self.colour.r, self.colour.g, self.colour.b
+		)
+	}
+
+	pub fn colour(&self) -> &Colour {
+		&self.colour
+	}
+
+	pub fn ansi_block(&self) -> String {
+		format!(
+			"\x1b[48;2;{};{};{}m",
+			self.colour.r, self.colour.g, self.colour.b
+		)
+	}
+}
+
+impl Deref for ColourInfo {
+	type Target = Colour;
+
+	fn deref(&self) -> &Self::Target {
+		&self.colour
+	}
 }
 
 /// Convert a hexadecimal string to a Colour struct
@@ -33,9 +61,10 @@ pub fn hexadecimal_to_colour(hex: &str) -> anyhow::Result<ColourInfo> {
 
 	Ok(ColourInfo {
 		colour: Colour::new(parsed[0], parsed[1], parsed[2]),
-		hex: hex.clone(),
 	})
 }
+
+type CommandReturn = anyhow::Result<Vec<ColourInfo>>;
 
 pub mod commands {
 	use super::*;
@@ -44,8 +73,8 @@ pub mod commands {
 	use std::fs;
 	use std::io::{self, Read};
 
-	pub fn wal() -> anyhow::Result<Vec<ColourInfo>> {
-		let home = env::var("HOME").unwrap_or_else(|_| "".to_owned());
+	pub fn wal() -> CommandReturn {
+		let home = env::var("HOME").unwrap_or_else(|_| ".".to_owned());
 		let path = format!("{}/{}", home, ".cache/wal/colors.json");
 		let contents = fs::read_to_string(path)?;
 		let parsed = json::parse(&contents)?;
@@ -64,21 +93,47 @@ pub mod commands {
 		Ok(colours_vec)
 	}
 
-	pub fn rand(n: usize) -> anyhow::Result<Vec<ColourInfo>> {
+	pub fn rand(n: usize) -> CommandReturn {
 		use rand::Rng;
 		let mut rng = rand::thread_rng();
-		let choices: Vec<_> = "1234567890abcdef".chars().collect();
 
 		Ok((0..n)
-			.map(|_| {
-				(0..6)
-					.map(|_| rng.gen_range(0..choices.len()))
-					.map(|c| choices[c])
-					.collect::<String>()
-			})
-			.into_iter()
-			.map(|hex| hexadecimal_to_colour(&hex).unwrap())
+			.map(|_| Colour::new(rng.gen(), rng.gen(), rng.gen()))
+			.map(|c| ColourInfo { colour: c })
 			.collect())
+	}
+
+	pub fn gradient(start: String, end: String, chunks: usize) -> CommandReturn {
+		let mut start = hexadecimal_to_colour(&start)?.colour;
+		let end = hexadecimal_to_colour(&end)?.colour;
+
+		let diffs = [
+			end.r as i16 - start.r as i16,
+			end.g as i16 - start.g as i16,
+			end.b as i16 - start.b as i16,
+		];
+
+		let add_or_sub = |colour: &mut u8, channel| {
+			if channel > 0 {
+				*colour += channel as u8;
+			} else if channel < 0 {
+				*colour -= (channel * -1) as u8;
+			}
+		};
+
+		let mut grad = Vec::new();
+		grad.push(ColourInfo { colour: start });
+
+		let divby = chunks as i16;
+
+		for _ in 0..(chunks - 1) {
+			add_or_sub(&mut start.r, diffs[0] / divby);
+			add_or_sub(&mut start.g, diffs[1] / divby);
+			add_or_sub(&mut start.b, diffs[2] / divby);
+			grad.push(ColourInfo { colour: start });
+		}
+
+		Ok(grad)
 	}
 }
 
