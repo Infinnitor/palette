@@ -2,27 +2,20 @@
 pub use rgb::RGB8 as Colour;
 use std::ops::Deref;
 
-pub struct ColourInfo {
-	colour: Colour,
-}
+// Newtype
+pub struct ColourInfo(Colour);
 
 impl ColourInfo {
 	pub fn hex(&self) -> String {
-		format!(
-			"#{:02x}{:02x}{:02x}",
-			self.colour.r, self.colour.g, self.colour.b
-		)
+		format!("#{:02x}{:02x}{:02x}", self.0.r, self.0.g, self.0.b)
 	}
 
 	pub fn colour(&self) -> &Colour {
-		&self.colour
+		&self.0
 	}
 
 	pub fn ansi_block(&self) -> String {
-		format!(
-			"\x1b[48;2;{};{};{}m",
-			self.colour.r, self.colour.g, self.colour.b
-		)
+		format!("\x1b[48;2;{};{};{}m", self.0.r, self.0.g, self.0.b)
 	}
 }
 
@@ -30,7 +23,7 @@ impl Deref for ColourInfo {
 	type Target = Colour;
 
 	fn deref(&self) -> &Self::Target {
-		&self.colour
+		&self.0
 	}
 }
 
@@ -59,9 +52,7 @@ pub fn hexadecimal_to_colour(hex: &str) -> anyhow::Result<ColourInfo> {
 		panic!("Wrong format");
 	}
 
-	Ok(ColourInfo {
-		colour: Colour::new(parsed[0], parsed[1], parsed[2]),
-	})
+	Ok(ColourInfo(Colour::new(parsed[0], parsed[1], parsed[2])))
 }
 
 type CommandReturn = anyhow::Result<Vec<ColourInfo>>;
@@ -99,20 +90,19 @@ pub mod commands {
 
 		Ok((0..n)
 			.map(|_| Colour::new(rng.gen(), rng.gen(), rng.gen()))
-			.map(|c| ColourInfo { colour: c })
+			.map(|c| ColourInfo(c))
 			.collect())
 	}
 
 	pub fn gradient(start: String, end: String, chunks: usize) -> CommandReturn {
-		let mut start = hexadecimal_to_colour(&start)?.colour;
-		let end = hexadecimal_to_colour(&end)?.colour;
+		let mut start = hexadecimal_to_colour(&start)?.colour().clone();
+		let end = hexadecimal_to_colour(&end)?.colour().clone();
 
 		let diffs = [
 			end.r as i16 - start.r as i16,
 			end.g as i16 - start.g as i16,
 			end.b as i16 - start.b as i16,
 		];
-
 		let add_or_sub = |colour: &mut u8, channel| {
 			if channel > 0 {
 				*colour += channel as u8;
@@ -122,7 +112,7 @@ pub mod commands {
 		};
 
 		let mut grad = Vec::new();
-		grad.push(ColourInfo { colour: start });
+		grad.push(ColourInfo(start));
 
 		let divby = chunks as i16;
 
@@ -130,7 +120,7 @@ pub mod commands {
 			add_or_sub(&mut start.r, diffs[0] / divby);
 			add_or_sub(&mut start.g, diffs[1] / divby);
 			add_or_sub(&mut start.b, diffs[2] / divby);
-			grad.push(ColourInfo { colour: start });
+			grad.push(ColourInfo(start));
 		}
 
 		Ok(grad)
