@@ -46,16 +46,21 @@ mod display {
 		println!("{}", CLEAR_SEQUENCE);
 	}
 
-	pub fn print_lines_code(colours: &[ColourInfo]) {
+	pub fn print_lines_code(colours: &[ColourInfo], coloured: bool) {
 		println!("[");
 		for (i, c) in colours.into_iter().enumerate() {
-			let mut formatted = format!("\t\"{}{}{}\",", c.ansi_block(), c.hex(), CLEAR_SEQUENCE);
+			let mut formatted = if coloured {
+				format!("\t\"{}{}{}\",", c.ansi_block(), c.hex(), CLEAR_SEQUENCE)
+			} else {
+				format!("\t\"{}\",", c.hex())
+			};
+
 			if i == colours.len() - 1 {
 				formatted.pop();
 			}
 			println!("{}", formatted);
 		}
-		println!("{}]", CLEAR_SEQUENCE);
+		println!("{}]", if coloured { CLEAR_SEQUENCE } else { "" });
 	}
 }
 
@@ -126,11 +131,15 @@ fn main() {
 	};
 
 	if matches.get_flag("plain") {
-		display::print_lines_uncoloured(&colours);
+		if matches.get_flag("code") {
+			display::print_lines_code(&colours, false);
+		} else {
+			display::print_lines_uncoloured(&colours);
+		}
 	} else if matches.get_flag("lined") {
 		display::print_block_lines(&colours);
 	} else if matches.get_flag("code") {
-		display::print_lines_code(&colours);
+		display::print_lines_code(&colours, true);
 	} else {
 		display::print_lines_coloured(&colours);
 	}
