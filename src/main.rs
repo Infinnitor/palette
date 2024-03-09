@@ -23,13 +23,7 @@ mod display {
 
 	pub fn print_lines_coloured(colours: &[ColourInfo]) {
 		for c in colours.into_iter() {
-			println!(
-				"{}{}{} {}",
-				c.ansi_block(),
-				"      ",
-				CLEAR_SEQUENCE,
-				c.hex()
-			);
+			println!("{}{}{} {}", c.ansi_block(), "      ", CLEAR_SEQUENCE, c.hex());
 		}
 	}
 
@@ -75,34 +69,26 @@ fn main() {
 		.subcommand(Command::new("wal").about("Loads colours from ~/.cache/wal/colors.json"))
 		.subcommand(
 			Command::new("gradient")
+				.aliases(["gr"])
 				.about("Generates a gradient between <start> and <end>")
 				.arg(arg!([start] "The starting colour").required(true))
 				.arg(arg!([end] "The ending colour").required(true)),
 		)
 		.subcommand(
-			Command::new("gradient-rand").about("Generates a gradient between two random colours"),
+			Command::new("gradient-rand")
+				.aliases(["grand"])
+				.about("Generates a gradient between two random colours"),
 		)
+		.subcommand(Command::new("colourize").about("Colourizes plain input from stdin"))
 		.arg(
 			arg!(-n --limit <AMT> "Limit number of colours displayed")
 				.required(false)
 				.global(true)
 				.value_parser(value_parser!(usize)),
 		)
-		.arg(
-			arg!(--plain "Do not colour display")
-				.required(false)
-				.global(true),
-		)
-		.arg(
-			arg!(--code "Print colours as code")
-				.required(false)
-				.global(true),
-		)
-		.arg(
-			arg!(--lined "Print full lines of colour")
-				.required(false)
-				.global(true),
-		);
+		.arg(arg!(--plain "Do not colour display").required(false).global(true))
+		.arg(arg!(--code "Print colours as code").required(false).global(true))
+		.arg(arg!(--lined "Print full lines of colour").required(false).global(true));
 
 	let help = program.render_help();
 
@@ -112,10 +98,7 @@ fn main() {
 	let colours: Vec<_> = if let Some(sub) = matches.subcommand_matches("rand") {
 		handle_anyhow_result(commands::rand(limit))
 	} else if let Some(sub) = matches.subcommand_matches("wal") {
-		handle_anyhow_result(commands::wal())
-			.into_iter()
-			.take(limit)
-			.collect()
+		handle_anyhow_result(commands::wal()).into_iter().take(limit).collect()
 	} else if let Some(sub) = matches.subcommand_matches("gradient") {
 		handle_anyhow_result(commands::gradient(
 			sub.get_one::<String>("start").unwrap().to_string(),
@@ -125,6 +108,8 @@ fn main() {
 	} else if let Some(sub) = matches.subcommand_matches("gradient-rand") {
 		let ends = handle_anyhow_result(commands::rand(2));
 		handle_anyhow_result(commands::gradient(ends[0].hex(), ends[1].hex(), limit))
+	} else if let Some(sub) = matches.subcommand_matches("colourize") {
+		handle_anyhow_result(commands::colourize())
 	} else {
 		println!("{}", help);
 		std::process::exit(2);

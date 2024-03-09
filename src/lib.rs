@@ -1,6 +1,7 @@
 #![allow(unused)]
 pub use rgb::RGB8 as Colour;
 use std::ops::Deref;
+use std::io::{self, BufRead};
 
 // Newtype
 pub struct ColourInfo(Colour);
@@ -124,6 +125,17 @@ pub mod commands {
 		}
 
 		Ok(grad)
+	}
+
+	pub fn colourize() -> CommandReturn {
+		let mut colours = vec![];
+		for line in io::stdin().lock().lines() {
+			let line = line?;
+			let decoded = hexadecimal_to_colour(line.trim())?;
+			colours.push(decoded);
+		}
+
+		Ok(colours)
 	}
 }
 

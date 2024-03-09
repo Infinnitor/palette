@@ -1,3 +1,6 @@
+dev:
+	cargo check
+
 build:
 	cargo build
 
