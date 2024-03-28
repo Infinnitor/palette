@@ -22,3 +22,9 @@ Options:
   -h, --help         Print help
   -V, --version      Print version
 ```
+
+# TODO
+
+- Copy output to clipboard
+
+- Better --plain flag

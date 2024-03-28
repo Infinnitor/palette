@@ -1,10 +1,11 @@
 #![allow(unused)]
-
 use clap::{arg, command, value_parser, ArgAction, Command};
 use palette::{commands, Colour, ColourInfo};
 use std::cmp;
 use std::env;
 use std::iter;
+
+use cli_clipboard;
 
 fn handle_anyhow_result<T>(res: anyhow::Result<T>) -> T {
 	match res {
@@ -56,6 +57,19 @@ mod display {
 		}
 		println!("{}]", if coloured { CLEAR_SEQUENCE } else { "" });
 	}
+
+	pub fn copyable_code(colours: &[ColourInfo]) -> String{
+		let mut code = String::from("gradient = [");
+		for (i, c) in colours.into_iter().enumerate() {
+			let mut formatted = format!("\t\"{}\",", c.hex());
+
+			if i == colours.len() - 1 {
+				formatted.pop();
+			}
+			code.push_str(&formatted);
+		}
+		code
+	}
 }
 
 fn main() {
@@ -88,6 +102,7 @@ fn main() {
 		)
 		.arg(arg!(--plain "Do not colour display").required(false).global(true))
 		.arg(arg!(--code "Print colours as code").required(false).global(true))
+		.arg(arg!(--cpcode "Code plain code to clipboard").required(false).global(true))
 		.arg(arg!(--lined "Print full lines of colour").required(false).global(true));
 
 	let help = program.render_help();
@@ -127,5 +142,9 @@ fn main() {
 		display::print_lines_code(&colours, true);
 	} else {
 		display::print_lines_coloured(&colours);
+	}
+
+	if matches.get_flag("cpcode") {
+		let copytext = display::copyable_code(&colours);
 	}
 }
